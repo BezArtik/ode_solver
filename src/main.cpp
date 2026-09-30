@@ -12,7 +12,7 @@ int main(int argc, char** argv) {
     }
 
     try {
-        auto&& cfg = numsol::load_config(argv[1]);
+        auto&& cfg = numsol::app::load_config(argv[1]);
         numsol::app::run(cfg);
         return 0;
     } catch (const numsol::solver_error& e) {

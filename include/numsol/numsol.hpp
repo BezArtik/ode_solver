@@ -1,3 +1,8 @@
+/**
+ * @file numsol.hpp
+ * @brief Umbrella header including the entire library and application.
+ */
+
 #pragma once
 
 #include "core/errors.hpp"

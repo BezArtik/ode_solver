@@ -1,3 +1,7 @@
+# Documentation utils
+docs/
+Doxyfile
+
 # Prerequisites
 *.d
 

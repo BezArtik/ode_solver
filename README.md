@@ -43,7 +43,7 @@ solution is written to CSV (file or stdout).
 - **Reusable library core** - `numsol::core` and `numsol::methods`
   are independent of TOML, expressions, and CSV. Use them directly in
   your own C++ projects.
-- **Modern C++20** - concepts, ranges, `std::format`, designated
+- **Modern C++23** - concepts, ranges, `std::format`, designated
   initializers.
 
 ---
