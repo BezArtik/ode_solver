@@ -48,13 +48,8 @@ using observer = std::function<observer_action(time, state_view)>;
  * @ref solution on the interval @c [t0, t_end].
  *
  * @tparam Method Method type.
- * @tparam F      Right-hand side type satisfying @ref rhs.
  */
-template <typename Method, typename F>
-    requires rhs<F> && requires(Method&& m, F&& f, time t, state_view y, time h) {
-        { m.step(f, t, y, h) } -> std::convertible_to<step_result>;
-        { m.order() } -> std::convertible_to<std::int32_t>;
-    }
+template <typename Method>
 class integrator {
 public:
     /**
@@ -70,6 +65,7 @@ public:
     /**
      * @brief Runs integration.
      *
+     * @tparam F Right-hand side type satisfying @ref rhs.
      * @param p Problem to solve.
      * @return  Solution containing all time points and states.
      *
@@ -77,11 +73,17 @@ public:
      * @throws max_steps_exceeded_error  if @c max_steps is reached.
      * @throws step_size_too_small_error if @c h falls below @c h_min.
      */
+    template <rhs F>
+        requires requires(Method&& m, F&& f, time t, state_view y, time h) {
+            { m.order() } -> std::convertible_to<std::int32_t>;
+            { m.step(f, t, y, h) } -> std::convertible_to<step_result>;
+        }
     [[nodiscard]] solution run(const problem<F>& p) {
         if (p.t_end_ < p.t0_) throw invalid_problem_error{"t_end must be >= t0"};
         if (p.y0_.empty()) throw invalid_problem_error{"initial state must be non-empty"};
         if (opts_.h0_ <= 0.0) throw invalid_problem_error{"h0 must be positive"};
 
+        method_.reserve(p.y0_.size());
         auto&& sol = solution{};
 
         auto&& span = p.t_end_ - p.t0_;

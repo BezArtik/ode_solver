@@ -8,6 +8,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #include "numsol/core/problem.hpp"
 #include "numsol/core/step.hpp"
@@ -41,6 +42,20 @@ public:
     [[nodiscard]] std::int32_t order() const noexcept { return Tableau::order; }
 
     /**
+     * @brief Reserves internal buffers for a system of dimension @p n.
+     *
+     * Called once by the integrator before the integration loop.
+     * After this call, @ref step performs no heap allocations.
+     */
+    void reserve(std::size_t n) {
+        if (n == dim_) return;
+        dim_ = n;
+        for (auto&& k : k_) k.resize(n);
+        y_stage_.resize(n);
+        y_next_.resize(n);
+    }
+
+    /**
      * @brief Performs one integration step.
      *
      * @tparam F Right-hand side type satisfying @ref rhs.
@@ -51,32 +66,42 @@ public:
      * @return  State and time after the step.
      */
     template <rhs F>
-    [[nodiscard]] step_result step(F&& f, time t, state_view y, time h) const {
-        auto&& k = std::array<state, stages>{};
+    [[nodiscard]] step_result step(F&& f, time t, state_view y, time h) {
+        std::ranges::copy(y, y_stage_.begin());
 
         for (std::size_t i = 0; i < stages; ++i) {
-            auto&& y_stage = state{y.begin(), y.end()};
+            if (i > 0) std::ranges::copy(y, y_stage_.begin());
 
             for (std::size_t j = 0; j < i; ++j) {
                 auto&& a_ij = Tableau::a[i][j];
                 if (a_ij == scalar{0}) continue;
-                auto&& k_j = k[j];
-                for (std::size_t m = 0; m < y_stage.size(); ++m) y_stage[m] += h * a_ij * k_j[m];
+
+                auto&& k_j = k_[j];
+                for (std::size_t m = 0; m < dim_; ++m) y_stage_[m] += h * a_ij * k_j[m];
             }
 
-            k[i] = f(t + Tableau::c[i] * h, y_stage);
+            auto&& dy = f(t + Tableau::c[i] * h, y_stage_);
+            std::ranges::copy(dy, k_[i].begin());
         }
 
-        auto&& y_next = state{y.begin(), y.end()};
+        std::ranges::copy(y, y_next_.begin());
+
         for (std::size_t i = 0; i < stages; ++i) {
             auto&& b_i = Tableau::b[i];
             if (b_i == scalar{0}) continue;
-            auto&& k_i = k[i];
-            for (std::size_t m = 0; m < y_next.size(); ++m) y_next[m] += h * b_i * k_i[m];
+
+            auto&& k_i = k_[i];
+            for (std::size_t m = 0; m < dim_; ++m) y_next_[m] += h * b_i * k_i[m];
         }
 
-        return {y_next, t + h};
+        return {{y_next_.begin(), y_next_.end()}, t + h};
     }
+
+private:
+    std::size_t dim_ = 0;
+    std::array<std::vector<scalar>, stages> k_;
+    std::vector<scalar> y_stage_;
+    std::vector<scalar> y_next_;
 };
 
 }  // namespace numsol

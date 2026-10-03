@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <boost/container/small_vector.hpp>
 #include <span>
 #include <vector>
 
@@ -45,7 +46,8 @@ using time = scalar;
  * a single time point. The length of the vector equals the dimension
  * of the system.
  */
-using state = std::vector<scalar>;
+// using state = std::vector<scalar>;
+using state = boost::container::small_vector<scalar, 8>;
 
 /**
  * @typedef state_view

@@ -12,12 +12,9 @@
 namespace numsol::app {
 
 /**
- * @brief Result of parsing a dictionary of RHS expressions.
+ * @brief Dictionary mapping variable names to expression strings.
  */
-struct parsed_rhs {
-    /// Expressions ordered as @c y1, @c y2, ..., @c yN.
-    std::vector<std::string> expressions_;
-};
+using expression_map = std::unordered_map<std::string, std::string>;
 
 /**
  * @brief Converts a name-to-expression dictionary into an ordered list.
@@ -30,6 +27,6 @@ struct parsed_rhs {
  * @throws numsol::invalid_problem_error if the dictionary is empty,
  *         a key is malformed, or the sequence is not contiguous.
  */
-[[nodiscard]] parsed_rhs parse_rhs_expressions(const std::unordered_map<std::string, std::string>& exprs);
+[[nodiscard]] std::vector<std::string> parse_rhs_expressions(expression_map exprs);
 
 }  // namespace numsol::app

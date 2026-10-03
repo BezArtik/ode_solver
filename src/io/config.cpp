@@ -84,7 +84,7 @@ auto parse_rhs(const toml::table& problem) {
         missing_field("problem", "rhs");
     }
 
-    auto&& result = std::unordered_map<std::string, std::string>{};
+    auto&& result = expression_map{};
     result.reserve(tbl->size());
     for (auto&& [key, value] : *tbl) {
         auto&& str = value.as_string();
@@ -140,8 +140,7 @@ config load_config(std::string_view path) {
     cfg.params_ = parse_params(*problem);
 
     auto&& raw_rhs = parse_rhs(*problem);
-    auto&& parsed = parse_rhs_expressions(raw_rhs);
-    cfg.rhs_expressions_ = parsed.expressions_;
+    cfg.rhs_expressions_ = parse_rhs_expressions(raw_rhs);
 
     if (cfg.y0_.size() != cfg.rhs_expressions_.size())
         throw invalid_problem_error{std::format("config: size mismatch: y0 has {} components, but rhs defines {}",
