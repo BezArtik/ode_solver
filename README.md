@@ -1,7 +1,7 @@
 # numsol
 
 A command-line utility for numerical integration of systems of ordinary
-differential equations (ODEs), with a reusable C++20 library core.
+differential equations (ODEs), with a reusable C++23 library core.
 
 `numsol` solves initial value problems of the form
 
