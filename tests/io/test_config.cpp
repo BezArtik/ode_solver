@@ -10,6 +10,8 @@
 
 namespace {
 
+using namespace numsol;
+using namespace numsol::app;
 using namespace numsol::tests;
 
 TEST_F(temp_file_test, parses_minimal) {
@@ -23,7 +25,7 @@ y1 = "y2"
 y2 = "-y1"
 )");
 
-    auto&& cfg = numsol::app::load_config(path_.string());
+    auto&& cfg = load_config(path_.string());
 
     EXPECT_DOUBLE_EQ(cfg.t0_, 0.0);
     EXPECT_DOUBLE_EQ(cfg.t_end_, 1.0);
@@ -65,7 +67,7 @@ path   = "out/test.csv"
 format = "csv"
 )");
 
-    auto&& cfg = numsol::app::load_config(path_.string());
+    auto&& cfg = load_config(path_.string());
 
     EXPECT_DOUBLE_EQ(cfg.t0_, 0.5);
     EXPECT_DOUBLE_EQ(cfg.t_end_, 5.0);
@@ -92,7 +94,7 @@ y0    = [1.0]
 y1 = "-y1"
 )");
 
-    auto&& cfg = numsol::app::load_config(path_.string());
+    auto&& cfg = load_config(path_.string());
 
     EXPECT_TRUE(cfg.params_.empty());
 }
@@ -107,7 +109,7 @@ y0    = [1.0]
 y1 = "-y1"
 )");
 
-    auto&& cfg = numsol::app::load_config(path_.string());
+    auto&& cfg = load_config(path_.string());
 
     EXPECT_EQ(cfg.method_, "rk4");
     EXPECT_DOUBLE_EQ(cfg.opts_.h0_, 1e-3);
@@ -123,7 +125,7 @@ y0    = [1.0]
 y1 = "-y1"
 )");
 
-    auto&& cfg = numsol::app::load_config(path_.string());
+    auto&& cfg = load_config(path_.string());
 
     EXPECT_TRUE(cfg.output_path_.empty());
     EXPECT_EQ(cfg.output_format_, "csv");
@@ -141,7 +143,7 @@ y1 = "y2"
 y2 = "y3"
 )");
 
-    auto&& cfg = numsol::app::load_config(path_.string());
+    auto&& cfg = load_config(path_.string());
 
     ASSERT_EQ(cfg.rhs_expressions_.size(), 3u);
     EXPECT_EQ(cfg.rhs_expressions_[0], "y2");
@@ -151,15 +153,14 @@ y2 = "y3"
 
 TEST_F(temp_file_test, rejects_missing_file) {
     auto&& missing = std::filesystem::temp_directory_path() / "numsol_does_not_exist_12345.toml";
-    EXPECT_THROW(std::ignore = numsol::app::load_config(missing.string()), numsol::invalid_problem_error);
+    EXPECT_THROW(std::ignore = load_config(missing.string()), invalid_problem_error);
 }
 
-class config_error_test : public numsol::tests::temp_file_test,
-                          public ::testing::WithParamInterface<std::string_view> {};
+class config_error_test : public temp_file_test, public ::testing::WithParamInterface<std::string_view> {};
 
 TEST_P(config_error_test, rejects_invalid_input) {
     write(GetParam());
-    EXPECT_THROW(std::ignore = numsol::app::load_config(path_string()), numsol::invalid_problem_error);
+    EXPECT_THROW(std::ignore = load_config(path_string()), invalid_problem_error);
 }
 
 // clang-format off

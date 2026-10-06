@@ -14,6 +14,8 @@
 
 namespace {
 
+using namespace numsol;
+using namespace numsol::app;
 using namespace numsol::tests;
 
 TEST_F(temp_file_test, oscillator_full_pipeline) {
@@ -32,13 +34,13 @@ method = "rk4"
 h0     = 0.01
 )");
 
-    auto&& cfg = numsol::app::load_config(path_string());
+    auto&& cfg = load_config(path_string());
 
-    auto&& rhs = numsol::app::expr_rhs{cfg.rhs_expressions_, cfg.params_};
+    auto&& rhs = expr_rhs{cfg.rhs_expressions_, cfg.params_};
 
-    auto&& p = numsol::problem{std::move(rhs), cfg.y0_, cfg.t0_, cfg.t_end_};
+    auto&& p = problem{std::move(rhs), cfg.y0_, cfg.t0_, cfg.t_end_};
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, cfg.opts_};
+    auto&& integ = integrator{rk4{}, cfg.opts_};
     auto&& sol = integ.run(p);
 
     ASSERT_FALSE(sol.t_.empty());
@@ -49,7 +51,7 @@ h0     = 0.01
     EXPECT_NEAR(sol.y_.back()[1], -std::sin(1.0), 1e-7);
 
     auto&& out = std::ostringstream{};
-    numsol::app::write_solution_csv(sol, out);
+    write_solution_csv(sol, out);
 
     auto&& text = out.str();
     EXPECT_FALSE(text.empty());
@@ -70,12 +72,12 @@ y0    = [1.0]
 y1 = "y1"
 )");
 
-    auto&& cfg = numsol::app::load_config(path_string());
-    auto&& rhs = numsol::app::expr_rhs{cfg.rhs_expressions_, cfg.params_};
+    auto&& cfg = load_config(path_string());
+    auto&& rhs = expr_rhs{cfg.rhs_expressions_, cfg.params_};
 
-    auto&& p = numsol::problem{std::move(rhs), cfg.y0_, cfg.t0_, cfg.t_end_};
+    auto&& p = problem{std::move(rhs), cfg.y0_, cfg.t0_, cfg.t_end_};
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, cfg.opts_};
+    auto&& integ = integrator{rk4{}, cfg.opts_};
     auto&& sol = integ.run(p);
 
     EXPECT_NEAR(sol.y_.back()[0], std::exp(1.0), 1e-7);
@@ -103,12 +105,12 @@ method = "rk4"
 h0     = 0.001
 )toml");
 
-    auto&& cfg = numsol::app::load_config(path_string());
-    auto&& rhs = numsol::app::expr_rhs{cfg.rhs_expressions_, cfg.params_};
+    auto&& cfg = load_config(path_string());
+    auto&& rhs = expr_rhs{cfg.rhs_expressions_, cfg.params_};
 
-    auto&& p = numsol::problem{std::move(rhs), cfg.y0_, cfg.t0_, cfg.t_end_};
+    auto&& p = problem{std::move(rhs), cfg.y0_, cfg.t0_, cfg.t_end_};
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, cfg.opts_};
+    auto&& integ = integrator{rk4{}, cfg.opts_};
     auto&& sol = integ.run(p);
 
     ASSERT_FALSE(sol.t_.empty());
@@ -135,10 +137,10 @@ y1 = "-y1"
 method = "rk99"
 )");
 
-    auto&& cfg = numsol::app::load_config(path_string());
+    auto&& cfg = load_config(path_string());
 
-    auto&& it = std::ranges::find(numsol::method_table, cfg.method_, &numsol::method_entry::first);
-    EXPECT_EQ(it, numsol::method_table.end());
+    auto&& it = std::ranges::find(method_table, cfg.method_, &method_entry::first);
+    EXPECT_EQ(it, method_table.end());
 }
 
 }  // namespace

@@ -1,6 +1,7 @@
 #include "app.hpp"
 
 #include <algorithm>
+#include <format>
 #include <iostream>
 #include <string>
 #include <utility>

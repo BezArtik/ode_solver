@@ -42,6 +42,40 @@ enum class observer_action : std::uint8_t {
 using observer = std::function<observer_action(time, state_view)>;
 
 /**
+ * @brief Requirements for a fixed-step method.
+ *
+ * A fixed-step method provides @c order(), @c reserve(n), and a
+ * @c step() callable that takes the RHS, time, state, and step size.
+ */
+template <typename Method, typename F>
+concept fixed_step_method = rhs<F> && requires(Method&& m, F&& f, time t, state_view y, time h) {
+    { m.order() } -> std::convertible_to<std::int32_t>;
+    { m.reserve(std::size_t{}) };
+    { m.step(f, t, y, h) } -> std::convertible_to<step_result>;
+};
+
+/**
+ * @brief Requirements for an adaptive-step method.
+ *
+ * An adaptive-step method provides @c order(), @c reserve(n), and a
+ * @c step() callable that additionally receives relative and absolute
+ * tolerances.
+ */
+template <typename Method, typename F>
+concept adaptive_step_method =
+    rhs<F> && requires(Method&& m, F&& f, time t, state_view y, time h, scalar rtol, scalar atol) {
+        { m.order() } -> std::convertible_to<std::int32_t>;
+        { m.reserve(std::size_t{}) };
+        { m.step(f, t, y, h, rtol, atol) } -> std::convertible_to<step_result>;
+    };
+
+/**
+ * @brief Either kind of method.
+ */
+template <typename Method, typename F>
+concept usable_method = fixed_step_method<Method, F> || adaptive_step_method<Method, F>;
+
+/**
  * @brief Drives numerical integration of an initial value problem.
  *
  * Combines a numerical method with a right-hand side and produces a
@@ -74,10 +108,7 @@ public:
      * @throws step_size_too_small_error if @c h falls below @c h_min.
      */
     template <rhs F>
-        requires requires(Method&& m, F&& f, time t, state_view y, time h) {
-            { m.order() } -> std::convertible_to<std::int32_t>;
-            { m.step(f, t, y, h) } -> std::convertible_to<step_result>;
-        }
+        requires usable_method<Method, F>
     [[nodiscard]] solution run(const problem<F>& p) {
         if (p.t_end_ < p.t0_) throw invalid_problem_error{"t_end must be >= t0"};
         if (p.y0_.empty()) throw invalid_problem_error{"initial state must be non-empty"};
@@ -113,17 +144,32 @@ public:
         sol.y_.push_back(y);
 
         while (t < p.t_end_) {
-            if (sol.stats_.steps_ >= opts_.max_steps_)
-                throw max_steps_exceeded_error("maximum number of steps exceeded");
+            if (sol.stats_.steps_ + sol.stats_.rejected_ >= opts_.max_steps_)
+                throw max_steps_exceeded_error{"maximum number of steps exceeded"};
 
-            if (h < opts_.h_min_) throw step_size_too_small_error("step size fell below h_min");
+            if (h < opts_.h_min_) throw step_size_too_small_error{"step size fell below h_min"};
 
             const auto h_actual = std::min(h, p.t_end_ - t);
 
-            auto&& res = method_.step(count_rhs, t, y, h_actual);
+            if constexpr (adaptive_step_method<Method, F>) {
+                auto&& res = method_.step(count_rhs, t, y, h_actual, opts_.rtol_, opts_.atol_);
 
-            t = res.t_next_;
-            y = std::move(res.y_next_);
+                if (!res.accepted_) {
+                    ++sol.stats_.rejected_;
+                    h = std::max(res.suggested_h_, opts_.h_min_);
+                    continue;
+                }
+
+                if (res.suggested_h_ > 0.0) h = std::clamp(res.suggested_h_, opts_.h_min_, opts_.h_max_);
+
+                t = res.t_next_;
+                y = std::move(res.y_next_);
+            } else {
+                auto&& res = method_.step(count_rhs, t, y, h_actual);
+
+                t = res.t_next_;
+                y = std::move(res.y_next_);
+            }
 
             ++sol.stats_.steps_;
             sol.t_.push_back(t);

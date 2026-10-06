@@ -9,12 +9,17 @@
 #include <string_view>
 #include <variant>
 
-#include "numsol/methods/euler.hpp"
-#include "numsol/methods/rk2.hpp"
-#include "numsol/methods/rk3.hpp"
-#include "numsol/methods/rk4.hpp"
+#include "numsol/methods/adaptive_rk.hpp"
+#include "numsol/methods/explicit_rk.hpp"
+#include "numsol/methods/tableu.hpp"
 
 namespace numsol {
+
+using euler = explicit_rk<euler_tableau>;
+using rk2 = explicit_rk<rk2_tableau>;
+using rk3 = explicit_rk<rk3_tableau>;
+using rk4 = explicit_rk<rk4_tableau>;
+using dopri5 = adaptive_rk<dopri5_tableau>;
 
 /**
  * @brief Variant holding any available numerical method.

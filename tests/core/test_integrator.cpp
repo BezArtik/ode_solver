@@ -3,35 +3,24 @@
 #include <cmath>
 #include <tuple>
 
+#include "common/math.hpp"
 #include "numsol/core/errors.hpp"
 #include "numsol/core/integrator.hpp"
 #include "numsol/core/problem.hpp"
-#include "numsol/methods/euler.hpp"
-#include "numsol/methods/rk2.hpp"
-#include "numsol/methods/rk3.hpp"
-#include "numsol/methods/rk4.hpp"
+#include "numsol/methods/method.hpp"
 
 namespace {
 
-struct exponential {
-    numsol::state operator()(numsol::time /*t*/, numsol::state_view y) const { return {y[0]}; }
-};
+using namespace numsol;
+using namespace numsol::tests;
 
-struct empty_rhs {
-    numsol::state operator()(numsol::time /*t*/, numsol::state_view /*y*/) const { return {}; }
-};
+TEST(integrator, exponential) {
+    auto&& p = problem{exponential{}, {1.0}, 0.0, 1.0};
 
-struct oscillator {
-    numsol::state operator()(numsol::time /*t*/, numsol::state_view y) const { return {y[1], -y[0]}; }
-};
-
-TEST(integrator, solves_exponential) {
-    auto&& p = numsol::problem{exponential{}, {1.0}, 0.0, 1.0};
-
-    auto&& opts = numsol::solver_options{};
+    auto&& opts = solver_options{};
     opts.h0_ = 0.001;
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, opts};
+    auto&& integ = integrator{rk4{}, opts};
     auto&& sol = integ.run(p);
 
     ASSERT_FALSE(sol.t_.empty());
@@ -46,12 +35,12 @@ TEST(integrator, solves_exponential) {
 }
 
 TEST(integrator, includes_initial_point) {
-    auto&& p = numsol::problem{exponential{}, {1.0}, 0.0, 1.0};
+    auto&& p = problem{exponential{}, {1.0}, 0.0, 1.0};
 
-    auto&& opts = numsol::solver_options{};
+    auto&& opts = solver_options{};
     opts.h0_ = 0.1;
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, opts};
+    auto&& integ = integrator{rk4{}, opts};
     auto&& sol = integ.run(p);
 
     ASSERT_GE(sol.t_.size(), 1);
@@ -60,24 +49,24 @@ TEST(integrator, includes_initial_point) {
 }
 
 TEST(integrator, truncates_last_step) {
-    auto&& p = numsol::problem{exponential{}, {1.0}, 0.0, 1.0};
+    auto&& p = problem{exponential{}, {1.0}, 0.0, 1.0};
 
-    auto&& opts = numsol::solver_options{};
+    auto&& opts = solver_options{};
     opts.h0_ = 0.3;
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, opts};
+    auto&& integ = integrator{rk4{}, opts};
     auto&& sol = integ.run(p);
 
     EXPECT_DOUBLE_EQ(sol.t_.back(), 1.0);
 }
 
 TEST(integrator, zero_interval) {
-    auto&& p = numsol::problem{exponential{}, {1.0}, 0.0, 0.0};
+    auto&& p = problem{exponential{}, {1.0}, 0.0, 0.0};
 
-    auto&& opts = numsol::solver_options{};
+    auto&& opts = solver_options{};
     opts.h0_ = 0.1;
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, opts};
+    auto&& integ = integrator{rk4{}, opts};
     auto&& sol = integ.run(p);
 
     ASSERT_EQ(sol.t_.size(), 1);
@@ -89,12 +78,12 @@ TEST(integrator, zero_interval) {
 }
 
 TEST(integrator, oscillator_energy_preserved) {
-    auto&& p = numsol::problem{oscillator{}, {1.0, 0.0}, 0.0, 10.0};
+    auto&& p = problem{oscillator{}, {1.0, 0.0}, 0.0, 10.0};
 
-    auto&& opts = numsol::solver_options{};
+    auto&& opts = solver_options{};
     opts.h0_ = 0.01;
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, opts};
+    auto&& integ = integrator{rk4{}, opts};
     auto&& sol = integ.run(p);
 
     for (auto&& y : sol.y_) {
@@ -104,89 +93,89 @@ TEST(integrator, oscillator_energy_preserved) {
 }
 
 TEST(integrator, throws_on_negative_interval) {
-    auto&& p = numsol::problem{exponential{}, {1.0}, 1.0, 0.0};
+    auto&& p = problem{exponential{}, {1.0}, 1.0, 0.0};
 
-    auto&& opts = numsol::solver_options{};
+    auto&& opts = solver_options{};
     opts.h0_ = 0.1;
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, opts};
-    EXPECT_THROW(std::ignore = integ.run(p), numsol::invalid_problem_error);
+    auto&& integ = integrator{rk4{}, opts};
+    EXPECT_THROW(std::ignore = integ.run(p), invalid_problem_error);
 }
 
 TEST(integrator, throws_on_empty_initial_state) {
     auto&& p = numsol::problem{empty_rhs{}, {}, 0.0, 1.0};
 
-    auto&& opts = numsol::solver_options{};
+    auto&& opts = solver_options{};
     opts.h0_ = 0.1;
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, opts};
-    EXPECT_THROW(std::ignore = integ.run(p), numsol::invalid_problem_error);
+    auto&& integ = integrator{rk4{}, opts};
+    EXPECT_THROW(std::ignore = integ.run(p), invalid_problem_error);
 }
 
 TEST(integrator, throws_on_non_positive_step) {
-    auto&& p = numsol::problem{exponential{}, {1.0}, 0.0, 1.0};
+    auto&& p = problem{exponential{}, {1.0}, 0.0, 1.0};
 
-    auto&& opts = numsol::solver_options{};
+    auto&& opts = solver_options{};
     opts.h0_ = 0.0;
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, opts};
-    EXPECT_THROW(std::ignore = integ.run(p), numsol::invalid_problem_error);
+    auto&& integ = integrator{rk4{}, opts};
+    EXPECT_THROW(std::ignore = integ.run(p), invalid_problem_error);
 }
 
 TEST(integrator, throws_on_max_steps_exceeded) {
-    auto&& p = numsol::problem{exponential{}, {1.0}, 0.0, 100.0};
+    auto&& p = problem{exponential{}, {1.0}, 0.0, 100.0};
 
-    auto&& opts = numsol::solver_options{};
+    auto&& opts = solver_options{};
     opts.h0_ = 1e-3;
     opts.max_steps_ = 10;
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, opts};
-    EXPECT_THROW(std::ignore = integ.run(p), numsol::max_steps_exceeded_error);
+    auto&& integ = integrator{rk4{}, opts};
+    EXPECT_THROW(std::ignore = integ.run(p), max_steps_exceeded_error);
 }
 
 TEST(integrator, throws_on_step_size_too_small) {
-    auto&& p = numsol::problem{exponential{}, {1.0}, 0.0, 1.0};
+    auto&& p = problem{exponential{}, {1.0}, 0.0, 1.0};
 
-    auto&& opts = numsol::solver_options{};
+    auto&& opts = solver_options{};
     opts.h0_ = 1e-3;
     opts.h_min_ = 1.0;
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, opts};
-    EXPECT_THROW(std::ignore = integ.run(p), numsol::step_size_too_small_error);
+    auto&& integ = integrator{rk4{}, opts};
+    EXPECT_THROW(std::ignore = integ.run(p), step_size_too_small_error);
 }
 
 TEST(integrator, observer_called_each_step) {
-    auto&& p = numsol::problem{exponential{}, {1.0}, 0.0, 1.0};
+    auto&& p = problem{exponential{}, {1.0}, 0.0, 1.0};
 
-    auto&& opts = numsol::solver_options{};
+    auto&& opts = solver_options{};
     opts.h0_ = 0.1;
 
     auto&& calls = std::size_t{};
-    numsol::observer obs = [&calls](numsol::time /*t*/, numsol::state_view /*y*/) {
+    observer obs = [&calls](numsol::time /*t*/, state_view /*y*/) {
         ++calls;
-        return numsol::observer_action::continue_;
+        return observer_action::continue_;
     };
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, opts, obs};
+    auto&& integ = integrator{rk4{}, opts, obs};
     auto&& sol = integ.run(p);
 
     EXPECT_EQ(calls, sol.stats_.steps_);
 }
 
 TEST(integrator, observer_can_stop) {
-    auto&& p = numsol::problem{exponential{}, {1.0}, 0.0, 1.0};
+    auto&& p = problem{exponential{}, {1.0}, 0.0, 1.0};
 
-    auto&& opts = numsol::solver_options{};
+    auto&& opts = solver_options{};
     opts.h0_ = 0.1;
 
     auto&& calls = std::size_t{};
-    numsol::observer obs = [&calls](numsol::time /*t*/, numsol::state_view /*y*/) {
+    observer obs = [&calls](numsol::time /*t*/, state_view /*y*/) {
         ++calls;
-        if (calls >= 3) return numsol::observer_action::stop_;
-        return numsol::observer_action::continue_;
+        if (calls >= 3) return observer_action::stop_;
+        return observer_action::continue_;
     };
 
-    auto&& integ = numsol::integrator{numsol::rk4{}, opts, obs};
+    auto&& integ = integrator{rk4{}, opts, obs};
     auto&& sol = integ.run(p);
 
     EXPECT_EQ(calls, 3);
@@ -197,12 +186,12 @@ TEST(integrator, observer_can_stop) {
 
 TEST(integrator, all_methods_reach_t_end) {
     const auto run = [](auto method) {
-        auto&& p = numsol::problem{exponential{}, {1.0}, 0.0, 1.0};
+        auto&& p = problem{exponential{}, {1.0}, 0.0, 1.0};
 
-        auto&& opts = numsol::solver_options{};
+        auto&& opts = solver_options{};
         opts.h0_ = 0.01;
 
-        auto&& integ = numsol::integrator{method, opts};
+        auto&& integ = integrator{method, opts};
         auto&& sol = integ.run(p);
 
         EXPECT_DOUBLE_EQ(sol.t_.back(), 1.0);

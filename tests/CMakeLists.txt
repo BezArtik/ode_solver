@@ -1,6 +1,7 @@
 add_executable(numsol_tests
     core/test_integrator.cpp
-    methods/test_convergence.cpp
+    methods/test_fixed.cpp
+    methods/test_adaptive.cpp
     expr/test_expr_parser.cpp
     expr/test_expr_rhs.cpp
     io/test_config.cpp
