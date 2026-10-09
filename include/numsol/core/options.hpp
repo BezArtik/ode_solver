@@ -50,6 +50,10 @@ struct solver_options {
     /// Must be in @c (0, 1). Smaller values make the controller
     /// more conservative.
     scalar safety_ = 0.9;
+
+    /// Threshold for the raw local error estimate used by
+    /// double-step methods such as @ref rk4_adaptive.
+    scalar eps_ = 1e-6;
 };
 
 }  // namespace numsol

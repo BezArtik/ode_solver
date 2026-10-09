@@ -63,10 +63,10 @@ concept fixed_step_method = rhs<F> && requires(Method&& m, F&& f, time t, state_
  */
 template <typename Method, typename F>
 concept adaptive_step_method =
-    rhs<F> && requires(Method&& m, F&& f, time t, state_view y, time h, scalar rtol, scalar atol) {
+    rhs<F> && requires(Method&& m, F&& f, time t, state_view y, time h, const solver_options& opts) {
         { m.order() } -> std::convertible_to<std::int32_t>;
         { m.reserve(std::size_t{}) };
-        { m.step(f, t, y, h, rtol, atol) } -> std::convertible_to<step_result>;
+        { m.step(f, t, y, h, opts) } -> std::convertible_to<step_result>;
     };
 
 /**
@@ -152,21 +152,45 @@ public:
             const auto h_actual = std::min(h, p.t_end_ - t);
 
             if constexpr (adaptive_step_method<Method, F>) {
-                auto&& res = method_.step(count_rhs, t, y, h_actual, opts_.rtol_, opts_.atol_);
+                auto&& res = method_.step(count_rhs, t, y, h_actual, opts_);
+
+                if (res.lee_ > sol.stats_.max_lee_) {
+                    sol.stats_.max_lee_ = res.lee_;
+                    sol.stats_.max_lee_at_ = t;
+                }
+                if (sol.stats_.min_h_ == time{} || h_actual < sol.stats_.min_h_) {
+                    sol.stats_.min_h_ = h_actual;
+                    sol.stats_.min_h_at_ = t;
+                }
 
                 if (!res.accepted_) {
                     ++sol.stats_.rejected_;
-                    h = std::max(res.suggested_h_, opts_.h_min_);
+                    if (res.halved_) ++sol.stats_.halvings_;
+                    h = res.suggested_h_;
                     continue;
                 }
 
-                if (res.suggested_h_ > 0.0) h = std::clamp(res.suggested_h_, opts_.h_min_, opts_.h_max_);
+                if (res.doubled_) ++sol.stats_.doublings_;
+
+                if (h_actual > sol.stats_.max_h_) {
+                    sol.stats_.max_h_ = h_actual;
+                    sol.stats_.max_h_at_ = t;
+                }
 
                 t = res.t_next_;
                 y = std::move(res.y_next_);
+
+                if (res.suggested_h_ > time{}) h = std::clamp(res.suggested_h_, opts_.h_min_, opts_.h_max_);
+
+                if (!res.y_coarse_.empty()) {
+                    sol.y_coarse_.push_back(std::move(res.y_coarse_));
+                    sol.lee_.push_back(res.lee_);
+                    sol.h_.push_back(h_actual);
+                    sol.c1_.push_back(sol.stats_.halvings_);
+                    sol.c2_.push_back(sol.stats_.doublings_);
+                }
             } else {
                 auto&& res = method_.step(count_rhs, t, y, h_actual);
-
                 t = res.t_next_;
                 y = std::move(res.y_next_);
             }

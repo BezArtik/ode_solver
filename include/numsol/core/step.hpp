@@ -41,6 +41,22 @@ struct step_result {
     ///
     /// Fixed-step methods always set this to @c true.
     bool accepted_ = true;
+
+    /// Coarse solution obtained with the full step.
+    ///
+    /// Populated only by double-step methods such as
+    /// @ref rk4_adaptive. Empty otherwise.
+    state y_coarse_;
+
+    /// Local error estimate @c |v_i - v_2i| for double-step
+    /// methods. Zero otherwise.
+    scalar lee_ = 0.0;
+
+    /// True if the step size was halved after this step.
+    bool halved_ = false;
+
+    /// True if the step size was doubled after this step.
+    bool doubled_ = false;
 };
 
 }  // namespace numsol

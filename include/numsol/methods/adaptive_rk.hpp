@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "numsol/core/options.hpp"
 #include "numsol/core/problem.hpp"
 #include "numsol/core/step.hpp"
 #include "numsol/core/types.hpp"
@@ -43,7 +44,7 @@ public:
     }
 
     template <rhs F>
-    [[nodiscard]] step_result step(F&& f, time t, state_view y, time h, scalar rtol, scalar atol) {
+    [[nodiscard]] step_result step(F&& f, time t, state_view y, time h, const solver_options& opts) {
         for (std::size_t i = 0; i < stages; ++i) {
             std::ranges::copy(y, y_stage_.begin());
 
@@ -77,7 +78,7 @@ public:
 
         auto&& err_sq = scalar{};
         for (std::size_t m = 0; m < dim_; ++m) {
-            auto&& sc = atol + rtol * std::max(std::abs(y[m]), std::abs(y_next_[m]));
+            auto&& sc = opts.atol_ + opts.rtol_ * std::max(std::abs(y[m]), std::abs(y_next_[m]));
             auto&& e = (y_next_[m] - y_hat_[m]) / sc;
             err_sq += e * e;
         }
@@ -88,7 +89,7 @@ public:
         auto&& h_new = h * std::clamp(safety * std::pow(1.0 / err, exp), 0.2, 5.0);
 
         return step_result{
-            .y_next_ = state{y_next_.begin(), y_next_.end()},
+            .y_next_ = {y_next_.begin(), y_next_.end()},
             .t_next_ = t + h,
             .error_estimate_ = err,
             .suggested_h_ = h_new,

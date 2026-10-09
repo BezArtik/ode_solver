@@ -69,6 +69,7 @@ add_library(numsol::expr ALIAS numsol_expr)
 add_library(numsol_io STATIC
     src/io/config.cpp
     src/io/solution_writer.cpp
+    src/io/lab_writer.cpp
 )
 target_include_directories(numsol_io PUBLIC include)
 target_link_libraries(numsol_io PUBLIC

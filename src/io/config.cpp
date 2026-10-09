@@ -38,6 +38,15 @@ auto get_required_time(const toml::table& tbl, std::string_view section, std::st
     return node->get();
 }
 
+auto get_required_string(const toml::table& tbl, std::string_view section, std::string_view field) {
+    auto&& node = tbl[field].as_string();
+    if (!node) {
+        if (tbl[field]) wrong_type(section, field, "a string");
+        missing_field(section, field);
+    }
+    return node->get();
+}
+
 auto get_size(const toml::table& tbl, std::string_view section, std::string_view field, std::size_t default_value) {
     auto&& node = tbl[field].as_integer();
     if (!node) {
@@ -58,6 +67,15 @@ auto get_string(const toml::table& tbl, std::string_view section, std::string_vi
         return default_value;
     }
     return node->get();
+}
+
+auto get_bool(const toml::table& tbl, std::string_view section, std::string_view field, bool default_value) {
+    auto&& node = tbl[field].as_boolean();
+    if (!node) {
+        if (tbl[field]) wrong_type(section, field, "a boolean");
+        return default_value;
+    }
+    return node->value_or(default_value);
 }
 
 auto parse_y0(const toml::table& problem) {
@@ -114,6 +132,11 @@ auto parse_solver(const toml::table& tbl) {
     opts.h_min_ = get_time(tbl, "solver", "h_min", opts.h_min_);
     opts.h_max_ = get_time(tbl, "solver", "h_max", opts.h_max_);
     opts.max_steps_ = get_size(tbl, "solver", "max_steps", opts.max_steps_);
+    opts.adaptive_ = get_bool(tbl, "solver", "adaptive", opts.adaptive_);
+    opts.rtol_ = get_time(tbl, "solver", "rtol", opts.rtol_);
+    opts.atol_ = get_time(tbl, "solver", "atol", opts.atol_);
+    opts.safety_ = get_time(tbl, "solver", "safety", opts.safety_);
+    opts.eps_ = get_time(tbl, "solver", "eps", opts.eps_);
     return opts;
 }
 
@@ -152,10 +175,9 @@ config load_config(std::string_view path) {
     }
 
     auto&& output = tbl["output"].as_table();
-    if (output) {
-        cfg.output_path_ = get_string(*output, "output", "path", "");
-        cfg.output_format_ = get_string(*output, "output", "format", "csv");
-    }
+    if (!output) missing_field("output", "(section)");
+    cfg.output_path_ = get_string(*output, "output", "path", "");
+    cfg.output_format_ = get_string(*output, "output", "format", "csv");
 
     return cfg;
 }
