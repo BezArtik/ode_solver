@@ -9,7 +9,8 @@
 
 #pragma once
 
-#include <boost/container/small_vector.hpp>
+#include "numsol/utils/small_vector.hpp"
+
 #include <span>
 
 /**
@@ -45,7 +46,7 @@ using time = scalar;
  * a single time point. The length of the vector equals the dimension
  * of the system.
  */
-using state = boost::container::small_vector<scalar, 8>;
+using state = small_vector<scalar, 8>;
 
 /**
  * @typedef state_view
