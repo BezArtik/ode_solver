@@ -5,20 +5,19 @@
 
 #pragma once
 
-#include <algorithm>
-#include <concepts>
-#include <cstddef>
-#include <cstdint>
-#include <functional>
-#include <utility>
-#include <vector>
-
 #include "numsol/core/errors.hpp"
 #include "numsol/core/options.hpp"
 #include "numsol/core/problem.hpp"
 #include "numsol/core/solution.hpp"
 #include "numsol/core/step.hpp"
 #include "numsol/core/types.hpp"
+
+#include <algorithm>
+#include <concepts>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <utility>
 
 namespace numsol {
 
@@ -206,8 +205,8 @@ public:
         stats.rhs_evals_ = rhs_evals;
         stats.last_h_ = h;
         stats.success_ = (t >= p.t_end_);
-
         sol.stats_ = std::move(stats);
+
         return sol;
     }
 

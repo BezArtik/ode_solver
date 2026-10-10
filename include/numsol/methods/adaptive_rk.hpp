@@ -5,16 +5,16 @@
 
 #pragma once
 
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstddef>
-#include <vector>
-
 #include "numsol/core/options.hpp"
 #include "numsol/core/problem.hpp"
 #include "numsol/core/step.hpp"
 #include "numsol/core/types.hpp"
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <functional>
 
 namespace numsol {
 
@@ -40,61 +40,65 @@ public:
         }
 
         for (std::size_t i = 0; i < stages; ++i) {
-            std::ranges::copy(y, y_stage_.begin());
-
-            for (std::size_t j = 0; j < i; ++j) {
-                auto&& a_ij = Tableau::a[i][j];
-                if (a_ij == scalar{0}) continue;
-
-                auto&& k_j = k_[j];
-                for (std::size_t m = 0; m < dim_; ++m) y_stage_[m] += h * a_ij * k_j[m];
+            for (std::size_t m = 0; m < dim_; ++m) {
+                auto&& acc = scalar{};
+                for (std::size_t j = 0; j < i; ++j) acc += Tableau::a[i][j] * k_[j][m];
+                y_stage_[m] = y[m] + h * acc;
             }
-
-            auto&& dy = f(t + Tableau::c[i] * h, y_stage_);
-            std::ranges::copy(dy, k_[i].begin());
+            k_[i] = std::invoke(std::forward<F>(f), t + Tableau::c[i] * h, y_stage_);
         }
 
-        std::ranges::copy(y, y_next_.begin());
-        for (std::size_t i = 0; i < stages; ++i) {
-            auto&& b_i = Tableau::b[i];
-            if (b_i == scalar{0}) continue;
-            auto&& k_i = k_[i];
-            for (std::size_t m = 0; m < dim_; ++m) y_next_[m] += h * b_i * k_i[m];
+        for (std::size_t m = 0; m < dim_; ++m) {
+            auto&& acc = scalar{};
+            for (std::size_t i = 0; i < stages; ++i) acc += Tableau::b[i] * k_[i][m];
+            y_next_[m] = y[m] + h * acc;
         }
 
-        std::ranges::copy(y, y_hat_.begin());
-        for (std::size_t i = 0; i < stages; ++i) {
-            auto&& b_i = Tableau::b_hat[i];
-            if (b_i == scalar{0}) continue;
-            auto&& k_i = k_[i];
-            for (std::size_t m = 0; m < dim_; ++m) y_hat_[m] += h * b_i * k_i[m];
+        for (std::size_t m = 0; m < dim_; ++m) {
+            auto&& acc = scalar{};
+            for (std::size_t i = 0; i < stages; ++i) acc += Tableau::b_hat[i] * k_[i][m];
+            y_hat_[m] = y[m] + h * acc;
         }
 
         auto&& err_sq = scalar{};
+        auto&& raw_lee = scalar{};
         for (std::size_t m = 0; m < dim_; ++m) {
+            auto&& diff = y_next_[m] - y_hat_[m];
+            raw_lee = std::max(raw_lee, std::abs(diff));
+
             auto&& sc = opts.atol_ + opts.rtol_ * std::max(std::abs(y[m]), std::abs(y_next_[m]));
-            auto&& e = (y_next_[m] - y_hat_[m]) / sc;
+            auto&& e = diff / sc;
             err_sq += e * e;
         }
 
-        constexpr auto safety = scalar{0.9};
-        constexpr auto exp = scalar{1.0 / static_cast<scalar>(Tableau::order)};
         auto&& err = std::sqrt(err_sq / static_cast<scalar>(dim_));
-        auto&& h_new = h * std::clamp(safety * std::pow(1.0 / err, exp), 0.2, 5.0);
 
-        return {
-            .y_next_ = y_next_,
-            .t_next_ = t + h,
-            .error_estimate_ = err,
-            .suggested_h_ = h_new,
-            .accepted_ = (err <= 1.0),
-        };
+        auto&& res = step_result{};
+        res.y_next_ = y_next_;
+        res.t_next_ = t + h;
+        res.error_estimate_ = err;
+        res.lee_ = raw_lee;
+
+        if (err > 1.0) {
+            res.accepted_ = false;
+            res.suggested_h_ = h * 0.5;
+            res.halved_ = true;
+        } else if (err < 1.0 / 32.0) {
+            res.accepted_ = true;
+            res.suggested_h_ = h * 2.0;
+            res.doubled_ = true;
+        } else {
+            res.accepted_ = true;
+            res.suggested_h_ = h;
+        }
+
+        return res;
     }
 
 private:
     static constexpr std::size_t stages = Tableau::stages;
     std::size_t dim_ = 0;
-    std::array<std::vector<scalar>, stages> k_;
+    std::array<state, stages> k_;
     state y_stage_;
     state y_next_;
     state y_hat_;

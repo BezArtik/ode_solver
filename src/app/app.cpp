@@ -1,11 +1,5 @@
 #include "app.hpp"
 
-#include <algorithm>
-#include <format>
-#include <print>
-#include <utility>
-#include <variant>
-
 #include "numsol/core/errors.hpp"
 #include "numsol/core/integrator.hpp"
 #include "numsol/core/problem.hpp"
@@ -13,6 +7,12 @@
 #include "numsol/io/lab_writer.hpp"
 #include "numsol/io/solution_writer.hpp"
 #include "numsol/methods/method.hpp"
+
+#include <algorithm>
+#include <format>
+#include <print>
+#include <utility>
+#include <variant>
 
 namespace numsol::app {
 
@@ -26,7 +26,7 @@ void run(const config& cfg) {
 
     auto&& sol = std::visit(
         [&](auto concrete_method) {
-            integrator integ(std::move(concrete_method), cfg.opts_);
+            auto&& integ = integrator{std::move(concrete_method), cfg.opts_};
             return integ.run(p);
         },
         std::move(it->second));

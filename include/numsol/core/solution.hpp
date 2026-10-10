@@ -5,10 +5,10 @@
 
 #pragma once
 
-#include <vector>
-
 #include "numsol/core/stats.hpp"
 #include "numsol/core/types.hpp"
+
+#include <vector>
 
 namespace numsol {
 

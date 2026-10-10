@@ -5,16 +5,18 @@
 
 #pragma once
 
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstddef>
-#include <vector>
-
 #include "numsol/core/options.hpp"
 #include "numsol/core/problem.hpp"
 #include "numsol/core/step.hpp"
 #include "numsol/core/types.hpp"
+#include "numsol/methods/tableu.hpp"
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <functional>
+#include <utility>
 
 namespace numsol {
 
@@ -95,49 +97,32 @@ public:
     }
 
 private:
+    using T = rk4_tableau;
+
     template <rhs F>
     [[nodiscard]] state rk4_full_step(F&& f, time t, state_view y, time h) {
-        std::ranges::copy(y, y_stage_.begin());
-        {
-            auto&& dy = f(t, y_stage_);
-            std::ranges::copy(dy, k_[0].begin());
-        }
-
-        std::ranges::copy(y, y_stage_.begin());
-        for (std::size_t m = 0; m < dim_; ++m) y_stage_[m] += (h * 0.5) * k_[0][m];
-
-        {
-            auto&& dy = f(t + h * 0.5, y_stage_);
-            std::ranges::copy(dy, k_[1].begin());
-        }
-
-        std::ranges::copy(y, y_stage_.begin());
-        for (std::size_t m = 0; m < dim_; ++m) y_stage_[m] += (h * 0.5) * k_[1][m];
-
-        {
-            auto&& dy = f(t + h * 0.5, y_stage_);
-            std::ranges::copy(dy, k_[2].begin());
-        }
-
-        std::ranges::copy(y, y_stage_.begin());
-        for (std::size_t m = 0; m < dim_; ++m) y_stage_[m] += h * k_[2][m];
-
-        {
-            auto&& dy = f(t + h, y_stage_);
-            std::ranges::copy(dy, k_[3].begin());
+        for (std::size_t i = 0; i < T::stages; ++i) {
+            for (std::size_t m = 0; m < dim_; ++m) {
+                auto&& acc = scalar{};
+                for (std::size_t j = 0; j < i; ++j) acc += T::a[i][j] * k_[j][m];
+                y_stage_[m] = y[m] + h * acc;
+            }
+            k_[i] = std::invoke(std::forward<F>(f), t + T::c[i] * h, y_stage_);
         }
 
         auto&& result = state(dim_);
-        auto&& h6 = h / 6.0;
-        for (std::size_t m = 0; m < dim_; ++m)
-            result[m] = y[m] + h6 * (k_[0][m] + 2.0 * k_[1][m] + 2.0 * k_[2][m] + k_[3][m]);
+        for (std::size_t m = 0; m < dim_; ++m) {
+            auto&& acc = scalar{};
+            for (std::size_t i = 0; i < T::stages; ++i) acc += T::b[i] * k_[i][m];
+            result[m] = y[m] + h * acc;
+        }
 
         return result;
     }
 
-    static constexpr std::size_t stages = 4;
+    static constexpr std::size_t stages = T::stages;
     std::size_t dim_ = 0;
-    std::array<std::vector<scalar>, stages> k_;
+    std::array<state, stages> k_;
     state y_stage_;
 };
 

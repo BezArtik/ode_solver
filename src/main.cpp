@@ -1,9 +1,9 @@
-#include <exception>
-#include <print>
-
-#include "app.hpp"
+#include "app/app.hpp"
 #include "numsol/core/errors.hpp"
 #include "numsol/io/config.hpp"
+
+#include <exception>
+#include <print>
 
 int main(int argc, char** argv) {
     if (argc != 2) {

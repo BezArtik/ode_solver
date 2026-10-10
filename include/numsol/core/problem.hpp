@@ -5,9 +5,9 @@
 
 #pragma once
 
-#include <concepts>
-
 #include "numsol/core/types.hpp"
+
+#include <concepts>
 
 namespace numsol {
 

@@ -1,12 +1,12 @@
 #include "numsol/io/lab_writer.hpp"
 
+#include "numsol/core/errors.hpp"
+
 #include <array>
 #include <format>
 #include <fstream>
 #include <ostream>
 #include <string>
-
-#include "numsol/core/errors.hpp"
 
 namespace numsol::app {
 

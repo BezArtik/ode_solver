@@ -1,11 +1,11 @@
 #include "numsol/io/solution_writer.hpp"
 
+#include "numsol/core/errors.hpp"
+
 #include <format>
 #include <fstream>
 #include <ostream>
 #include <string>
-
-#include "numsol/core/errors.hpp"
 
 namespace numsol::app {
 

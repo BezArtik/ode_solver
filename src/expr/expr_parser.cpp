@@ -1,11 +1,11 @@
 #include "numsol/expr/expr_parser.hpp"
 
+#include "numsol/core/errors.hpp"
+
 #include <charconv>
 #include <format>
 #include <string>
 #include <vector>
-
-#include "numsol/core/errors.hpp"
 
 namespace numsol::app {
 

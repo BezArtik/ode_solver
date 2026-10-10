@@ -27,17 +27,7 @@ FetchContent_Declare(
     GIT_SHALLOW    TRUE
 )
 
-FetchContent_Declare(
-    boost
-    URL https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.xz
-    URL_HASH SHA256=7da75f171837577a52bbf217e17f8ea576c7c246e4594d617bfde7fafd408be5
-    DOWNLOAD_EXTRACT_TIMESTAMP ON
-    EXCLUDE_FROM_ALL
-)
-
-set(BOOST_INCLUDE_LIBRARIES container)
-
-FetchContent_MakeAvailable(tomlplusplus exprtk googletest boost)
+FetchContent_MakeAvailable(tomlplusplus exprtk googletest)
 
 add_library(exprtk INTERFACE)
 target_include_directories(exprtk INTERFACE
@@ -47,7 +37,6 @@ add_library(exprtk::exprtk ALIAS exprtk)
 
 add_library(numsol_core INTERFACE)
 target_include_directories(numsol_core INTERFACE include)
-target_link_libraries(numsol_core INTERFACE Boost::container)
 target_compile_features(numsol_core INTERFACE cxx_std_23)
 add_library(numsol::core ALIAS numsol_core)
 

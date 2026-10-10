@@ -5,11 +5,10 @@
 
 #pragma once
 
+#include "numsol/core/types.hpp"
+
 #include <array>
 #include <cstddef>
-#include <cstdint>
-
-#include "numsol/core/types.hpp"
 
 namespace numsol {
 
@@ -22,8 +21,6 @@ struct euler_tableau {
     static constexpr std::array<scalar, 1> c{0.0};
     static constexpr std::array<std::array<scalar, 1>, 1> a{{{0.0}}};
     static constexpr std::array<scalar, 1> b{1.0};
-
-    static constexpr std::int32_t order = 1;
 };
 
 /**
@@ -35,8 +32,6 @@ struct rk2_tableau {
     static constexpr std::array<scalar, 2> c{0.0, 1.0};
     static constexpr std::array<std::array<scalar, 2>, 2> a{{{0.0, 0.0}, {1.0, 0.0}}};
     static constexpr std::array<scalar, 2> b{0.5, 0.5};
-
-    static constexpr std::int32_t order = 2;
 };
 
 /**
@@ -48,8 +43,6 @@ struct rk3_tableau {
     static constexpr std::array<scalar, 3> c{0.0, 0.5, 1.0};
     static constexpr std::array<std::array<scalar, 3>, 3> a{{{0.0, 0.0, 0.0}, {0.5, 0.0, 0.0}, {-1.0, 2.0, 0.0}}};
     static constexpr std::array<scalar, 3> b{1.0 / 6.0, 2.0 / 3.0, 1.0 / 6.0};
-
-    static constexpr std::int32_t order = 3;
 };
 
 /**
@@ -62,8 +55,6 @@ struct rk4_tableau {
     static constexpr std::array<std::array<scalar, 4>, 4> a{
         {{0.0, 0.0, 0.0, 0.0}, {0.5, 0.0, 0.0, 0.0}, {0.0, 0.5, 0.0, 0.0}, {0.0, 0.0, 1.0, 0.0}}};
     static constexpr std::array<scalar, 4> b{1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0};
-
-    static constexpr std::int32_t order = 4;
 };
 
 /**
@@ -74,9 +65,6 @@ struct rk4_tableau {
  */
 struct dopri5_tableau {
     static constexpr std::size_t stages = 7;
-
-    static constexpr std::int32_t order = 5;
-    static constexpr std::int32_t order_low = 4;
 
     static constexpr std::array<scalar, 7> c{0.0, 1.0 / 5.0, 3.0 / 10.0, 4.0 / 5.0, 8.0 / 9.0, 1.0, 1.0};
 

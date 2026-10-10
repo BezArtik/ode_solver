@@ -5,13 +5,14 @@
 
 #pragma once
 
-#include <array>
-#include <cstddef>
-#include <vector>
-
 #include "numsol/core/problem.hpp"
 #include "numsol/core/step.hpp"
 #include "numsol/core/types.hpp"
+
+#include <array>
+#include <cstddef>
+#include <functional>
+#include <utility>
 
 namespace numsol {
 
@@ -51,31 +52,19 @@ public:
             y_next_.resize(dim_);
         }
 
-        std::ranges::copy(y, y_stage_.begin());
-
         for (std::size_t i = 0; i < stages; ++i) {
-            if (i > 0) std::ranges::copy(y, y_stage_.begin());
-
-            for (std::size_t j = 0; j < i; ++j) {
-                auto&& a_ij = Tableau::a[i][j];
-                if (a_ij == scalar{0}) continue;
-
-                auto&& k_j = k_[j];
-                for (std::size_t m = 0; m < dim_; ++m) y_stage_[m] += h * a_ij * k_j[m];
+            for (std::size_t m = 0; m < dim_; ++m) {
+                auto&& acc = scalar{};
+                for (std::size_t j = 0; j < i; ++j) acc += Tableau::a[i][j] * k_[j][m];
+                y_stage_[m] = y[m] + h * acc;
             }
-
-            auto&& dy = f(t + Tableau::c[i] * h, y_stage_);
-            std::ranges::copy(dy, k_[i].begin());
+            k_[i] = std::invoke(std::forward<F>(f), t + Tableau::c[i] * h, y_stage_);
         }
 
-        std::ranges::copy(y, y_next_.begin());
-
-        for (std::size_t i = 0; i < stages; ++i) {
-            auto&& b_i = Tableau::b[i];
-            if (b_i == scalar{}) continue;
-
-            auto&& k_i = k_[i];
-            for (std::size_t m = 0; m < dim_; ++m) y_next_[m] += h * b_i * k_i[m];
+        for (std::size_t m = 0; m < dim_; ++m) {
+            auto&& acc = scalar{};
+            for (std::size_t i = 0; i < stages; ++i) acc += Tableau::b[i] * k_[i][m];
+            y_next_[m] = y[m] + h * acc;
         }
 
         return {y_next_, t + h};
@@ -84,7 +73,7 @@ public:
 private:
     static constexpr std::size_t stages = Tableau::stages;
     std::size_t dim_ = 0;
-    std::array<std::vector<scalar>, stages> k_;
+    std::array<state, stages> k_;
     state y_stage_;
     state y_next_;
 };

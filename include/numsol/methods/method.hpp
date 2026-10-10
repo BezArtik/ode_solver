@@ -5,14 +5,14 @@
 
 #pragma once
 
-#include <array>
-#include <string_view>
-#include <variant>
-
 #include "numsol/methods/adaptive_rk.hpp"
 #include "numsol/methods/explicit_rk.hpp"
 #include "numsol/methods/rk4_double_step.hpp"
 #include "numsol/methods/tableu.hpp"
+
+#include <array>
+#include <string_view>
+#include <variant>
 
 namespace numsol {
 

@@ -1,12 +1,12 @@
 #include "numsol/io/config.hpp"
 
+#include "numsol/core/errors.hpp"
+#include "numsol/expr/expr_parser.hpp"
+
 #include <format>
 #include <string>
 #include <string_view>
 #include <toml++/toml.hpp>
-
-#include "numsol/core/errors.hpp"
-#include "numsol/expr/expr_parser.hpp"
 
 namespace numsol::app {
 

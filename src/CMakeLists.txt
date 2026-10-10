@@ -1,6 +1,6 @@
 add_executable(numsol_app
     main.cpp
-    app.cpp
+    app/app.cpp
 )
 
 target_link_libraries(numsol_app PRIVATE
