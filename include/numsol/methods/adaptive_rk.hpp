@@ -9,7 +9,6 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <vector>
 
 #include "numsol/core/options.hpp"
@@ -30,21 +29,16 @@ namespace numsol {
 template <typename Tableau>
 class adaptive_rk {
 public:
-    static constexpr std::size_t stages = Tableau::stages;
-
-    [[nodiscard]] std::int32_t order() const noexcept { return Tableau::order; }
-
-    void reserve(std::size_t n) {
-        if (n == dim_) return;
-        dim_ = n;
-        for (auto&& k : k_) k.resize(n);
-        y_stage_.resize(n);
-        y_next_.resize(n);
-        y_hat_.resize(n);
-    }
-
     template <rhs F>
     [[nodiscard]] step_result step(F&& f, time t, state_view y, time h, const solver_options& opts) {
+        if (dim_ != y.size()) {
+            dim_ = y.size();
+            for (auto&& k : k_) k.resize(dim_);
+            y_stage_.resize(dim_);
+            y_next_.resize(dim_);
+            y_hat_.resize(dim_);
+        }
+
         for (std::size_t i = 0; i < stages; ++i) {
             std::ranges::copy(y, y_stage_.begin());
 
@@ -82,14 +76,14 @@ public:
             auto&& e = (y_next_[m] - y_hat_[m]) / sc;
             err_sq += e * e;
         }
-        auto&& err = std::sqrt(err_sq / static_cast<scalar>(dim_));
 
         constexpr auto safety = scalar{0.9};
         constexpr auto exp = scalar{1.0 / static_cast<scalar>(Tableau::order)};
+        auto&& err = std::sqrt(err_sq / static_cast<scalar>(dim_));
         auto&& h_new = h * std::clamp(safety * std::pow(1.0 / err, exp), 0.2, 5.0);
 
-        return step_result{
-            .y_next_ = {y_next_.begin(), y_next_.end()},
+        return {
+            .y_next_ = y_next_,
             .t_next_ = t + h,
             .error_estimate_ = err,
             .suggested_h_ = h_new,
@@ -98,11 +92,12 @@ public:
     }
 
 private:
+    static constexpr std::size_t stages = Tableau::stages;
     std::size_t dim_ = 0;
     std::array<std::vector<scalar>, stages> k_;
-    std::vector<scalar> y_stage_;
-    std::vector<scalar> y_next_;
-    std::vector<scalar> y_hat_;
+    state y_stage_;
+    state y_next_;
+    state y_hat_;
 };
 
 }  // namespace numsol

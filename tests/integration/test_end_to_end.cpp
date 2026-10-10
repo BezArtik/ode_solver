@@ -32,6 +32,9 @@ y2 = "-y1"
 [solver]
 method = "rk4"
 h0     = 0.01
+
+[output]
+path = "unused.csv"
 )");
 
     auto&& cfg = load_config(path_string());
@@ -70,6 +73,9 @@ y0    = [1.0]
 
 [problem.rhs]
 y1 = "y1"
+
+[output]
+path = "unused.csv"
 )");
 
     auto&& cfg = load_config(path_string());
@@ -103,6 +109,9 @@ beta  = 2.6666666666666665
 [solver]
 method = "rk4"
 h0     = 0.001
+
+[output]
+path = "unused.csv"
 )toml");
 
     auto&& cfg = load_config(path_string());
@@ -135,6 +144,9 @@ y1 = "-y1"
 
 [solver]
 method = "rk99"
+
+[output]
+path = "unused.csv"
 )");
 
     auto&& cfg = load_config(path_string());

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <format>
+#include <print>
 #include <utility>
 #include <variant>
 
@@ -30,11 +31,19 @@ void run(const config& cfg) {
         },
         std::move(it->second));
 
-    if (cfg.output_format_ == "lab") {
-        write_lab_csv(sol, cfg.output_path_);
-    } else {
-        write_solution_csv(sol, cfg.output_path_);
-    }
+    cfg.output_format_ == "lab" ? write_lab_csv(sol, cfg.output_path_) : write_solution_csv(sol, cfg.output_path_);
+    // clang-format off
+    std::print(stderr,
+               "n = {}\n" 
+               "b - x_n = {}\n" 
+               "max |LEE| = {}\n" 
+               "total halvings = {}\n" 
+               "total doublings = {}\n" 
+               "max h = {} at x = {}\n" 
+               "min h = {} at x = {}\n",
+               sol.stats_.steps_, cfg.t_end_ - sol.t_.back(), sol.stats_.max_lee_, sol.stats_.halvings_,
+               sol.stats_.doublings_, sol.stats_.max_h_, sol.stats_.max_h_at_, sol.stats_.min_h_, sol.stats_.min_h_at_);
+    // clang-format on
 }
 
 }  // namespace numsol::app

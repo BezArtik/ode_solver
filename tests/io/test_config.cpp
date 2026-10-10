@@ -23,6 +23,9 @@ y0    = [1.0, 0.0]
 [problem.rhs]
 y1 = "y2"
 y2 = "-y1"
+
+[output]
+path = "unused.csv"
 )");
 
     auto&& cfg = load_config(path_.string());
@@ -37,7 +40,6 @@ y2 = "-y1"
     EXPECT_EQ(cfg.rhs_expressions_[1], "-y1");
     EXPECT_EQ(cfg.method_, "rk4");
     EXPECT_TRUE(cfg.params_.empty());
-    EXPECT_TRUE(cfg.output_path_.empty());
     EXPECT_EQ(cfg.output_format_, "csv");
 }
 
@@ -92,6 +94,9 @@ y0    = [1.0]
 
 [problem.rhs]
 y1 = "-y1"
+
+[output]
+path = "unused.csv"
 )");
 
     auto&& cfg = load_config(path_.string());
@@ -107,28 +112,15 @@ y0    = [1.0]
 
 [problem.rhs]
 y1 = "-y1"
+
+[output]
+path = "unused.csv"
 )");
 
     auto&& cfg = load_config(path_.string());
 
     EXPECT_EQ(cfg.method_, "rk4");
     EXPECT_DOUBLE_EQ(cfg.opts_.h0_, 1e-3);
-}
-
-TEST_F(temp_file_test, output_optional) {
-    write(R"(
-[problem]
-t_end = 1.0
-y0    = [1.0]
-
-[problem.rhs]
-y1 = "-y1"
-)");
-
-    auto&& cfg = load_config(path_.string());
-
-    EXPECT_TRUE(cfg.output_path_.empty());
-    EXPECT_EQ(cfg.output_format_, "csv");
 }
 
 TEST_F(temp_file_test, rhs_order_independent) {
@@ -141,6 +133,9 @@ y0    = [1.0, 2.0, 3.0]
 y3 = "y1"
 y1 = "y2"
 y2 = "y3"
+
+[output]
+path = "unused.csv"
 )");
 
     auto&& cfg = load_config(path_.string());

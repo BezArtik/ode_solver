@@ -49,8 +49,6 @@ using observer = std::function<observer_action(time, state_view)>;
  */
 template <typename Method, typename F>
 concept fixed_step_method = rhs<F> && requires(Method&& m, F&& f, time t, state_view y, time h) {
-    { m.order() } -> std::convertible_to<std::int32_t>;
-    { m.reserve(std::size_t{}) };
     { m.step(f, t, y, h) } -> std::convertible_to<step_result>;
 };
 
@@ -64,8 +62,6 @@ concept fixed_step_method = rhs<F> && requires(Method&& m, F&& f, time t, state_
 template <typename Method, typename F>
 concept adaptive_step_method =
     rhs<F> && requires(Method&& m, F&& f, time t, state_view y, time h, const solver_options& opts) {
-        { m.order() } -> std::convertible_to<std::int32_t>;
-        { m.reserve(std::size_t{}) };
         { m.step(f, t, y, h, opts) } -> std::convertible_to<step_result>;
     };
 
@@ -114,8 +110,8 @@ public:
         if (p.y0_.empty()) throw invalid_problem_error{"initial state must be non-empty"};
         if (opts_.h0_ <= 0.0) throw invalid_problem_error{"h0 must be positive"};
 
-        method_.reserve(p.y0_.size());
         auto&& sol = solution{};
+        auto&& stats = solver_stats{};
 
         auto&& span = p.t_end_ - p.t0_;
         if (span > 0.0 && opts_.h0_ > 0.0) {
@@ -126,25 +122,20 @@ public:
 
         auto t = p.t0_;
         auto y = p.y0_;
-        auto&& h = opts_.h0_;
+        auto h = opts_.h0_;
 
         auto&& rhs_evals = std::size_t{};
-
-        struct counting_rhs {
-            [[nodiscard]] state operator()(time t, state_view y) const {
-                ++counter_;
-                return f_(t, y);
-            }
-
-            const F& f_;
-            std::size_t& counter_;
-        } count_rhs{p.rhs_, rhs_evals};
+        auto&& p_rhs = p.rhs_;
+        auto count_rhs = [&p_rhs, &rhs_evals](time t, state_view y) {
+            ++rhs_evals;
+            return p_rhs(t, y);
+        };
 
         sol.t_.push_back(t);
         sol.y_.push_back(y);
 
         while (t < p.t_end_) {
-            if (sol.stats_.steps_ + sol.stats_.rejected_ >= opts_.max_steps_)
+            if (stats.steps_ + stats.rejected_ >= opts_.max_steps_)
                 throw max_steps_exceeded_error{"maximum number of steps exceeded"};
 
             if (h < opts_.h_min_) throw step_size_too_small_error{"step size fell below h_min"};
@@ -154,29 +145,27 @@ public:
             if constexpr (adaptive_step_method<Method, F>) {
                 auto&& res = method_.step(count_rhs, t, y, h_actual, opts_);
 
-                if (res.lee_ > sol.stats_.max_lee_) {
-                    sol.stats_.max_lee_ = res.lee_;
-                    sol.stats_.max_lee_at_ = t;
+                if (res.lee_ > stats.max_lee_) {
+                    stats.max_lee_ = res.lee_;
+                    stats.max_lee_at_ = t;
                 }
-                if (sol.stats_.min_h_ == time{} || h_actual < sol.stats_.min_h_) {
-                    sol.stats_.min_h_ = h_actual;
-                    sol.stats_.min_h_at_ = t;
+                if (stats.min_h_ == time{} || h_actual < stats.min_h_) {
+                    stats.min_h_ = h_actual;
+                    stats.min_h_at_ = t;
+                }
+                if (h_actual > stats.max_h_) {
+                    stats.max_h_ = h_actual;
+                    stats.max_h_at_ = t;
                 }
 
                 if (!res.accepted_) {
-                    ++sol.stats_.rejected_;
-                    if (res.halved_) ++sol.stats_.halvings_;
+                    ++stats.rejected_;
+                    if (res.halved_) ++stats.halvings_;
                     h = res.suggested_h_;
                     continue;
                 }
 
-                if (res.doubled_) ++sol.stats_.doublings_;
-
-                if (h_actual > sol.stats_.max_h_) {
-                    sol.stats_.max_h_ = h_actual;
-                    sol.stats_.max_h_at_ = t;
-                }
-
+                if (res.doubled_) ++stats.doublings_;
                 t = res.t_next_;
                 y = std::move(res.y_next_);
 
@@ -186,16 +175,25 @@ public:
                     sol.y_coarse_.push_back(std::move(res.y_coarse_));
                     sol.lee_.push_back(res.lee_);
                     sol.h_.push_back(h_actual);
-                    sol.c1_.push_back(sol.stats_.halvings_);
-                    sol.c2_.push_back(sol.stats_.doublings_);
+                    sol.c1_.push_back(stats.halvings_);
+                    sol.c2_.push_back(stats.doublings_);
                 }
             } else {
                 auto&& res = method_.step(count_rhs, t, y, h_actual);
+
+                if (stats.min_h_ == time{} || h_actual < stats.min_h_) {
+                    stats.min_h_ = h_actual;
+                    stats.min_h_at_ = t;
+                }
+                if (h_actual > stats.max_h_) {
+                    stats.max_h_ = h_actual;
+                    stats.max_h_at_ = t;
+                }
                 t = res.t_next_;
                 y = std::move(res.y_next_);
             }
 
-            ++sol.stats_.steps_;
+            ++stats.steps_;
             sol.t_.push_back(t);
             sol.y_.push_back(y);
 
@@ -205,10 +203,11 @@ public:
             }
         }
 
-        sol.stats_.rhs_evals_ = rhs_evals;
-        sol.stats_.last_h_ = h;
-        sol.stats_.success_ = (t >= p.t_end_);
+        stats.rhs_evals_ = rhs_evals;
+        stats.last_h_ = h;
+        stats.success_ = (t >= p.t_end_);
 
+        sol.stats_ = std::move(stats);
         return sol;
     }
 

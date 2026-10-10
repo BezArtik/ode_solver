@@ -20,15 +20,6 @@ namespace {
     throw invalid_problem_error{std::format("config: field '{}.{}' must be {}", section, field, expected)};
 }
 
-auto get_time(const toml::table& tbl, std::string_view section, std::string_view field, time default_value) {
-    auto&& node = tbl[field].as_floating_point();
-    if (!node) {
-        if (tbl[field]) wrong_type(section, field, "a floating-point number");
-        return default_value;
-    }
-    return node->get();
-}
-
 auto get_required_time(const toml::table& tbl, std::string_view section, std::string_view field) {
     auto&& node = tbl[field].as_floating_point();
     if (!node) {
@@ -47,35 +38,44 @@ auto get_required_string(const toml::table& tbl, std::string_view section, std::
     return node->get();
 }
 
-auto get_size(const toml::table& tbl, std::string_view section, std::string_view field, std::size_t default_value) {
+void read_time(const toml::table& tbl, std::string_view section, std::string_view field, time& target) {
+    auto&& node = tbl[field].as_floating_point();
+    if (!node) {
+        if (tbl[field]) wrong_type(section, field, "a floating-point number");
+        return;
+    }
+    target = node->get();
+}
+
+void read_size(const toml::table& tbl, std::string_view section, std::string_view field, std::size_t& target) {
     auto&& node = tbl[field].as_integer();
     if (!node) {
         if (tbl[field]) wrong_type(section, field, "an integer");
-        return default_value;
+        return;
     }
     auto&& value = node->get();
-    if (value < 0) {
+    if (value < 0)
         throw invalid_problem_error{std::format("config: field '{}.{}' must be non-negative", section, field)};
-    }
-    return static_cast<std::size_t>(value);
+
+    target = static_cast<std::size_t>(value);
 }
 
-auto get_string(const toml::table& tbl, std::string_view section, std::string_view field, std::string default_value) {
-    auto&& node = tbl[field].as_string();
-    if (!node) {
-        if (tbl[field]) wrong_type(section, field, "a string");
-        return default_value;
-    }
-    return node->get();
-}
-
-auto get_bool(const toml::table& tbl, std::string_view section, std::string_view field, bool default_value) {
+void read_bool(const toml::table& tbl, std::string_view section, std::string_view field, bool& target) {
     auto&& node = tbl[field].as_boolean();
     if (!node) {
         if (tbl[field]) wrong_type(section, field, "a boolean");
-        return default_value;
+        return;
     }
-    return node->value_or(default_value);
+    target = node->value_or(target);
+}
+
+void read_string(const toml::table& tbl, std::string_view section, std::string_view field, std::string& target) {
+    auto&& node = tbl[field].as_string();
+    if (!node) {
+        if (tbl[field]) wrong_type(section, field, "a string");
+        return;
+    }
+    target = node->get();
 }
 
 auto parse_y0(const toml::table& problem) {
@@ -128,15 +128,15 @@ auto parse_params(const toml::table& problem) {
 
 auto parse_solver(const toml::table& tbl) {
     auto&& opts = solver_options{};
-    opts.h0_ = get_time(tbl, "solver", "h0", opts.h0_);
-    opts.h_min_ = get_time(tbl, "solver", "h_min", opts.h_min_);
-    opts.h_max_ = get_time(tbl, "solver", "h_max", opts.h_max_);
-    opts.max_steps_ = get_size(tbl, "solver", "max_steps", opts.max_steps_);
-    opts.adaptive_ = get_bool(tbl, "solver", "adaptive", opts.adaptive_);
-    opts.rtol_ = get_time(tbl, "solver", "rtol", opts.rtol_);
-    opts.atol_ = get_time(tbl, "solver", "atol", opts.atol_);
-    opts.safety_ = get_time(tbl, "solver", "safety", opts.safety_);
-    opts.eps_ = get_time(tbl, "solver", "eps", opts.eps_);
+    read_time(tbl, "solver", "h0", opts.h0_);
+    read_time(tbl, "solver", "h_min", opts.h_min_);
+    read_time(tbl, "solver", "h_max", opts.h_max_);
+    read_size(tbl, "solver", "max_steps", opts.max_steps_);
+    read_bool(tbl, "solver", "adaptive", opts.adaptive_);
+    read_time(tbl, "solver", "rtol", opts.rtol_);
+    read_time(tbl, "solver", "atol", opts.atol_);
+    read_time(tbl, "solver", "safety", opts.safety_);
+    read_time(tbl, "solver", "eps", opts.eps_);
     return opts;
 }
 
@@ -153,31 +153,30 @@ config load_config(std::string_view path) {
     auto&& problem = tbl["problem"].as_table();
     if (!problem) missing_field("problem", "(section)");
 
-    auto&& solver = tbl["solver"].as_table();
-
     auto&& cfg = config{};
 
-    cfg.t0_ = get_time(*problem, "problem", "t0", cfg.t0_);
+    read_time(*problem, "problem", "t0", cfg.t0_);
     cfg.t_end_ = get_required_time(*problem, "problem", "t_end");
     cfg.y0_ = parse_y0(*problem);
     cfg.params_ = parse_params(*problem);
 
     auto&& raw_rhs = parse_rhs(*problem);
-    cfg.rhs_expressions_ = parse_rhs_expressions(raw_rhs);
+    cfg.rhs_expressions_ = parse_rhs_expressions(std::move(raw_rhs));
 
-    if (cfg.y0_.size() != cfg.rhs_expressions_.size())
+    if (cfg.y0_.size() != cfg.rhs_expressions_.size()) {
         throw invalid_problem_error{std::format("config: size mismatch: y0 has {} components, but rhs defines {}",
                                                 cfg.y0_.size(), cfg.rhs_expressions_.size())};
+    }
 
-    if (solver) {
-        cfg.method_ = get_string(*solver, "solver", "method", cfg.method_);
+    if (auto&& solver = tbl["solver"].as_table()) {
+        read_string(*solver, "solver", "method", cfg.method_);
         cfg.opts_ = parse_solver(*solver);
     }
 
     auto&& output = tbl["output"].as_table();
     if (!output) missing_field("output", "(section)");
-    cfg.output_path_ = get_string(*output, "output", "path", "");
-    cfg.output_format_ = get_string(*output, "output", "format", "csv");
+    cfg.output_path_ = get_required_string(*output, "output", "path");
+    read_string(*output, "output", "format", cfg.output_format_);
 
     return cfg;
 }

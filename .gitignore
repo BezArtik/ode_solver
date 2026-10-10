@@ -1,3 +1,8 @@
+# Labwork information and utils
+labwork/
+tools/
+configs/
+
 # Documentation utils
 docs/
 Doxyfile

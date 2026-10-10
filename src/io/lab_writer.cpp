@@ -1,5 +1,6 @@
 #include "numsol/io/lab_writer.hpp"
 
+#include <array>
 #include <format>
 #include <fstream>
 #include <ostream>
@@ -9,6 +10,24 @@
 
 namespace numsol::app {
 
+namespace {
+
+constexpr std::size_t flush_threshold = 64 * 1024;
+
+void append_number(std::string& buf, double value) {
+    std::array<char, 32> tmp;
+    auto [ptr, _] = std::to_chars(tmp.begin(), tmp.end(), value);
+    buf.append(tmp.begin(), ptr);
+}
+
+void append_integer(std::string& buf, std::size_t value) {
+    std::array<char, 24> tmp;
+    auto [ptr, _] = std::to_chars(tmp.begin(), tmp.end(), value);
+    buf.append(tmp.begin(), ptr);
+}
+
+}  // namespace
+
 void write_lab_csv(const solution& sol, std::ostream& out) {
     auto&& t = sol.t_;
     auto&& y = sol.y_;
@@ -17,69 +36,78 @@ void write_lab_csv(const solution& sol, std::ostream& out) {
 
     auto&& n = t.size();
     auto&& dim = y.front().size();
-
     auto&& has_coarse = (sol.y_coarse_.size() == n - 1) && n > 0;
 
-    out << "i,x";
-    for (std::size_t k = 1; k <= dim; ++k) out << ",v" << k;
-    for (std::size_t k = 1; k <= dim; ++k) out << ",v2_" << k;
-    for (std::size_t k = 1; k <= dim; ++k) out << ",d_" << k;
-    out << ",LEE,h,C1,C2\n";
+    std::string buf;
+    buf.reserve(flush_threshold + 1024);
+
+    buf += "i,x";
+    for (std::size_t k = 1; k <= dim; ++k) {
+        buf += ",v";
+        append_integer(buf, k);
+    }
+    for (std::size_t k = 1; k <= dim; ++k) {
+        buf += ",v2_";
+        append_integer(buf, k);
+    }
+    for (std::size_t k = 1; k <= dim; ++k) {
+        buf += ",d_";
+        append_integer(buf, k);
+    }
+    buf += ",LEE,h,C1,C2\n";
+    out.write(buf.data(), static_cast<std::streamsize>(buf.size()));
+    buf.clear();
 
     for (std::size_t i = 0; i < n; ++i) {
         auto&& fine = y[i];
+        auto&& has_data = has_coarse && i > 0;
 
-        // i, x.
-        // out << i << ',' << fmt(t[i]);
-        out << std::format("{},{:.17g}", i, t[i]);
+        append_integer(buf, i);
+        buf += ',';
+        append_number(buf, t[i]);
 
-        // v_k — coarse.
         for (std::size_t k = 0; k < dim; ++k) {
-            // out << ',';
-            // if (has_coarse && i > 0) {
-            //     out << fmt(sol.y_coarse_[i - 1][k]);
-            // } else {
-            //     out << fmt(fine[k]);
-            // }
-            out << std::format(",{:.17g}", has_coarse && i > 0 ? sol.y_coarse_[i - 1][k] : fine[k]);
+            buf += ',';
+            append_number(buf, has_data ? sol.y_coarse_[i - 1][k] : fine[k]);
         }
 
-        // v2_k — fine.
         for (std::size_t k = 0; k < dim; ++k) {
-            // out << ',' << fmt(fine[k]);
-            out << std::format(",{:.17g}", fine[k]);
+            buf += ',';
+            append_number(buf, fine[k]);
         }
 
-        // d_k = v_k - v2_k.
         for (std::size_t k = 0; k < dim; ++k) {
-            // out << ',';
-            // if (has_coarse && i > 0) {
-            //     out << fmt(sol.y_coarse_[i - 1][k] - fine[k]);
-            // } else {
-            //     out << fmt(0.0);
-            // }
-            out << std::format(",{:.17g}", has_coarse && i > 0 ? (sol.y_coarse_[i - 1][k] - fine[k]) : 0);
+            buf += ',';
+            append_number(buf, has_data ? (sol.y_coarse_[i - 1][k] - fine[k]) : 0.0);
         }
 
-        // LEE, h, C1, C2.
-        if (has_coarse && i > 0) {
-            // out << ',' << fmt(sol.lee_[i - 1]) << ',' << fmt(sol.h_[i - 1]) << ',' << sol.c1_[i - 1] << ','
-            //     << sol.c2_[i - 1];
-            out << std::format(",{:.17g},{:.17g},{},{}", sol.lee_[i - 1], sol.h_[i - 1], sol.c1_[i - 1],
-                               sol.c2_[i - 1]);
+        if (has_data) {
+            buf += ',';
+            append_number(buf, sol.lee_[i - 1]);
+            buf += ',';
+            append_number(buf, sol.h_[i - 1]);
+            buf += ',';
+            append_integer(buf, sol.c1_[i - 1]);
+            buf += ',';
+            append_integer(buf, sol.c2_[i - 1]);
         } else {
-            // out << ',' << fmt(0.0) << ',' << fmt(0.0) << ',' << 0 << ',' << 0;
-            out << std::format(",{:.17g},{:.17g},{},{}", 0.0, 0.0, 0, 0);
+            buf += ",0,0,0,0";
         }
 
-        out << '\n';
+        buf += '\n';
+
+        if (buf.size() >= flush_threshold) {
+            out.write(buf.data(), static_cast<std::streamsize>(buf.size()));
+            buf.clear();
+        }
     }
+
+    if (!buf.empty()) out.write(buf.data(), static_cast<std::streamsize>(buf.size()));
 }
 
 void write_lab_csv(const solution& sol, const std::string& path) {
-    std::ofstream file(path);
+    auto&& file = std::ofstream{path};
     if (!file.is_open()) throw invalid_problem_error{std::format("failed to open output file: '{}'", path)};
-
     write_lab_csv(sol, file);
 }
 

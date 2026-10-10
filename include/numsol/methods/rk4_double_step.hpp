@@ -1,6 +1,6 @@
 /**
- * @file rk4_adaptive.hpp
- * @brief Fourth-order Runge-Kutta with double-step error control.
+ * @file rk4_double.hpp
+ * @brief Fourth-order Runge-Kutta with double-step error estimation.
  */
 
 #pragma once
@@ -9,7 +9,6 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <vector>
 
 #include "numsol/core/options.hpp"
@@ -20,52 +19,48 @@
 namespace numsol {
 
 /**
- * @brief Fourth-order Runge-Kutta with double-step error control.
+ * @brief Fourth-order Runge-Kutta with double-step error estimation.
  *
- * At each step the method computes two approximations:
- * - a coarse one with a single step of size @c h,
- * - a fine one with two half-steps of size @c h/2.
+ * At each step two approximations are computed:
+ *   - a coarse one with a single step of size @c h,
+ *   - a fine one with two half-steps of size @c h/2.
  *
- * The difference @c |v_i - v_2i| provides the raw local error
- * estimate (OLP). If it exceeds @ref solver_options::eps_, the step
- * is rejected and the step size is halved. If it is well below the
- * threshold, the step is accepted and the step size is doubled.
- * Otherwise the step is accepted with the same step size.
+ * The raw local error estimate (LEE) is the maximum component-wise
+ * difference @c |v_i - v_{2i}|.
+ *
+ * When @p Adaptive is @c true, the step size is halved or doubled
+ * depending on whether LEE exceeds or is well below
+ * @ref solver_options::eps_. When @p Adaptive is @c false, the step
+ * size is kept constant; the LEE is still reported for diagnostics.
+ *
+ * @tparam Adaptive Whether to adjust the step size.
  */
-class rk4_adaptive {
+template <bool Adaptive>
+class rk4_double_step {
 public:
-    static constexpr std::size_t stages = 4;
-
-    /// Order of the method.
-    [[nodiscard]] std::int32_t order() const noexcept { return 4; }
-
-    /// Reserves internal buffers for a system of dimension @p n.
-    void reserve(std::size_t n) {
-        if (n == dim_) return;
-        dim_ = n;
-        for (auto&& k : k_) k.resize(n);
-        y_stage_.resize(n);
-    }
-
     /**
      * @brief Performs one integration step.
      *
      * @tparam F Right-hand side type satisfying @ref rhs.
-     * @param f   Right-hand side function.
-     * @param t   Current time.
-     * @param y   Current state.
-     * @param h   Step size.
+     * @param f    Right-hand side function.
+     * @param t    Current time.
+     * @param y    Current state.
+     * @param h    Step size.
      * @param opts Solver options; @c opts.eps_ is used as the
-     *             local-error threshold.
-     * @return  Step result with @ref y_coarse_, @ref olp_,
+     *             local-error threshold when @p Adaptive is @c true.
+     * @return  Step result with @ref y_coarse_, @ref lee_,
      *          @ref halved_, and @ref doubled_ populated.
      */
     template <rhs F>
     [[nodiscard]] step_result step(F&& f, time t, state_view y, time h, const solver_options& opts) {
+        if (dim_ != y.size()) {
+            dim_ = y.size();
+            for (auto&& k : k_) k.resize(dim_);
+            y_stage_.resize(dim_);
+        }
         auto&& eps = opts.eps_;
 
         auto&& y_coarse = rk4_full_step(f, t, y, h);
-
         auto&& y_mid = rk4_full_step(f, t, y, h * 0.5);
         auto&& y_fine = rk4_full_step(f, t + h * 0.5, y_mid, h * 0.5);
 
@@ -78,14 +73,19 @@ public:
         res.t_next_ = t + h;
         res.lee_ = lee;
 
-        if (lee > eps) {
-            res.accepted_ = false;
-            res.suggested_h_ = h * 0.5;
-            res.halved_ = true;
-        } else if (lee < eps / 32.0) {
-            res.accepted_ = true;
-            res.suggested_h_ = h * 2.0;
-            res.doubled_ = true;
+        if constexpr (Adaptive) {
+            if (lee > eps) {
+                res.accepted_ = false;
+                res.suggested_h_ = h * 0.5;
+                res.halved_ = true;
+            } else if (lee < eps / 32.0) {
+                res.accepted_ = true;
+                res.suggested_h_ = h * 2.0;
+                res.doubled_ = true;
+            } else {
+                res.accepted_ = true;
+                res.suggested_h_ = h;
+            }
         } else {
             res.accepted_ = true;
             res.suggested_h_ = h;
@@ -107,7 +107,7 @@ private:
         for (std::size_t m = 0; m < dim_; ++m) y_stage_[m] += (h * 0.5) * k_[0][m];
 
         {
-            auto dy = f(t + h * 0.5, y_stage_);
+            auto&& dy = f(t + h * 0.5, y_stage_);
             std::ranges::copy(dy, k_[1].begin());
         }
 
@@ -135,9 +135,10 @@ private:
         return result;
     }
 
+    static constexpr std::size_t stages = 4;
     std::size_t dim_ = 0;
     std::array<std::vector<scalar>, stages> k_;
-    std::vector<scalar> y_stage_;
+    state y_stage_;
 };
 
 }  // namespace numsol
